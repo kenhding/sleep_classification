@@ -1,0 +1,40 @@
+
+2025/01/31 08:56:16 | INFO | Args dump: {'file_regex': '/mnt/ken/sleep_test/sleep_classification/uploaded_files/*.edf', 'out_dir': '/mnt/ken/sleep_test/sleep_classification/processed_files', 'channels': ['EEG C4/A1', 'EOG right'], 'rename_channels': ['EEG1', 'EOG1'], 'resample': 128, 'use_dir_names': False, 'trim_leading_seconds_dict': None, 'overwrite': True, 'continue_': False, 'log_file': 'extraction_log'}
+
+2025/01/31 08:56:16 | INFO | Found 2 files matching glob statement
+
+2025/01/31 08:56:16 | INFO | Extracting channels ['EEG_C4/A1-None', 'EOG_RIGHT-None']
+Saving channels under names ['EEG1', 'EOG1']
+Saving .h5 files to '/mnt/ken/sleep_test/sleep_classification/processed_files'
+Re-sampling: 128
+-*--*--*--*--*--*--*--*--*--*--*--*--*--*--*--*-
+
+2025/01/31 08:56:16 | INFO | 
+------------------
+[*] 1/2 Processing 093bd0c08f88422e35dbbe97a2a9b36a
+
+2025/01/31 08:56:16 | INFO | 
+[*] Channels in file: RESP_NASAL-None, RESP_CHEST-None, SOUND_SPL-None, PULSEWAVE-None, RESP_ABDOMEN-None, POSITION-None, SAO2_SPO2-None, PULSE-None, PTT-None, ECG-None, EMG_RIGHT-None, EMG_LEFT-None, EEG_C4/A1-None, EEG_C3/A2*-None, EEG_F4/A1-None, EOG_LEFT-None, EOG_RIGHT-None, EMG_CHIN_CENTER-None, THERMISTOR-None, EEG_O2/A1-None, SOUND_MICROPHONE-None, HYPNOGRAM-None, OBSTR-None, BR_FLOW-None, HR_CENTRAL-None, _ORIGINAL-HYPNOG
+[*] Output channels: EEG_C4/A1-None, EOG_RIGHT-None
+[*] Channels to load: EOG_RIGHT-None, EEG_C4/A1-None
+
+2025/01/31 08:56:17 | INFO | [*] Original PSG shape: (4761000, 2)
+
+2025/01/31 08:56:17 | INFO | [*] PSG shape after re-sampling: (3047040, 2)
+
+2025/01/31 08:56:17 | INFO | [*] Extracted 2 channels: ['EEG1', 'EOG1']
+
+2025/01/31 08:56:23 | INFO | 
+------------------
+[*] 2/2 Processing 8222a81d758e75c6e8d98127d86b95d53188137a926756b59341bc46a823e2e9
+
+2025/01/31 08:56:24 | INFO | 
+[*] Channels in file: RESP_NASAL-None, RESP_CHEST-None, SOUND_SPL-None, PULSEWAVE-None, RESP_ABDOMEN-None, POSITION-None, SAO2_SPO2-None, PULSE-None, PTT-None, ECG-None, EMG_RIGHT-None, EMG_LEFT-None, EEG_C4/A1-None, EEG_C3/A2*-None, EEG_F4/A1-None, EOG_LEFT-None, EOG_RIGHT-None, EMG_CHIN_CENTER-None, THERMISTOR-None, EEG_O2/A1-None, SOUND_MICROPHONE-None, HYPNOGRAM-None, OBSTR-None, BR_FLOW-None, HR_CENTRAL-None, _ORIGINAL-HYPNOG
+[*] Output channels: EEG_C4/A1-None, EOG_RIGHT-None
+[*] Channels to load: EOG_RIGHT-None, EEG_C4/A1-None
+
+2025/01/31 08:56:24 | INFO | [*] Original PSG shape: (4761000, 2)
+
+2025/01/31 08:56:24 | INFO | [*] PSG shape after re-sampling: (3047040, 2)
+
+2025/01/31 08:56:24 | INFO | [*] Extracted 2 channels: ['EEG1', 'EOG1']

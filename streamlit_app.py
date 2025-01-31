@@ -1,151 +1,130 @@
 import streamlit as st
-import pandas as pd
-import math
+import mne
+import os
 from pathlib import Path
+import subprocess
+import hashlib  # Add this import at the beginning
+import numpy as np
+import plotly.graph_objects as go  # Add this import for Plotly
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Define the project folder path (relative to where the Streamlit app is run)
+PROJECT_DIR = Path(__file__).parent  # This will get the current directory where the script is located
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Define the relative directories for uploading files and output
+UPLOAD_DIR = PROJECT_DIR / 'uploaded_files'  # Folder for storing uploaded files
+OUTPUT_DIR = PROJECT_DIR / 'processed_files'  # Folder for storing processed files
+PREDICTION_DIR = PROJECT_DIR / 'predictions'  # Folder for storing predictions
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Ensure that the directories exist
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # Create the upload folder if it doesn't exist
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)  # Create the output folder if it doesn't exist
+PREDICTION_DIR.mkdir(parents=True, exist_ok=True)  # Create the prediction folder if it doesn't exist
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# Function to handle the file upload and processing
+def process_edf_file(uploaded_file):
+    # Step 1: Rename the uploaded file to lowercase and replace spaces with underscores
+    file_name_lowercase = uploaded_file.name.lower().replace(" ", "_")
+    hashed_name = hashlib.md5(file_name_lowercase.encode()).hexdigest()  # MD5 produces a 32-character hash
+    new_file_name = f"{hashed_name}.edf"  # Append the .edf extension
+        
+    # Save the uploaded file with the new name to the UPLOAD_DIR
+    file_path = UPLOAD_DIR / new_file_name
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    try:
+        # Read the EDF file with light loading (metadata only)
+        raw = mne.io.read_raw_edf(file_path, preload=False)
+        
+        # Get the channel names
+        channel_names = raw.info['ch_names']
+        
+        # Additional information (sampling frequency, etc.)
+        st.write(f"Sampling frequency: {raw.info['sfreq']} Hz")
+        st.write(f"Number of channels: {len(channel_names)}")
+            
+        # Display the channel names
+        st.write(f"Channel names for {uploaded_file.name}:")
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+        # Let the user select the EEG and EOG channels from the list of available channels
+        eeg_channel = st.selectbox("Select the EEG channel", options=[None] + channel_names)  # Default is None
+        eog_channel = st.selectbox("Select the EOG channel", options=[None] + channel_names)  # Default is None
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+        if eeg_channel is not None and eog_channel is not None:
+            # Display the selected EEG and EOG channels
+            st.write(f"Selected EEG channel: {eeg_channel}")
+            st.write(f"Selected EOG channel: {eog_channel}")
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+            # 1. Run the external command to preprocess the data using 'ut extract'
+            preprocess_command = [
+                'ut', 'extract', '--overwrite', '--file_regex', f'{UPLOAD_DIR}/*.edf',
+                '--out_dir', str(OUTPUT_DIR), '--resample', '128',
+                '--channels', eeg_channel, eog_channel,
+                '--rename_channels', 'EEG1', 'EOG1'  # You may want to rename the channels here if needed
+            ]
+            
+            try:
+                # Run the preprocessing command
+                subprocess.run(preprocess_command, check=True)
+                st.write("Preprocessing command executed successfully!")
 
-    return gdp_df
+                # 2. Find the corresponding preprocessed .h5 file
+                base_name = Path(new_file_name).stem  # Remove the file extension from the uploaded file name
+                preprocessed_file = OUTPUT_DIR / base_name / f"{base_name}.h5"
+                st.write(preprocessed_file)
+                
+                # Check if the preprocessed .h5 file exists
+                if preprocessed_file.exists():
+                    st.write(f"Preprocessed file found: {preprocessed_file}")
+                    
+                    # 3. Run the external command for prediction using 'ut predict_one'
+                    predict_command = [
+                        'ut', 'predict_one', '-f', str(preprocessed_file), '-o', str(PREDICTION_DIR),
+                        '--channels', 'EEG1==EOG', 'EOG1==EOG',
+                        '--overwrite'
+                    ]
+                    # Run the prediction command
+                    subprocess.run(predict_command, check=True)
+                    st.write("Prediction command executed successfully!")
 
-gdp_df = get_gdp_data()
+                    # 4. Plot the prediction result (Assuming the result is in .npy format)
+                    npy_file_path = PREDICTION_DIR / f"{base_name}.npy"
+                    if npy_file_path.exists():
+                        # Load the prediction data
+                        prediction_data = np.load(npy_file_path).ravel()
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+                        # Display the shape of the prediction data
+                        st.write(f"Prediction data shape: {prediction_data.shape}")
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
+                        # Calculate the time axis (each point is 30 seconds apart)
+                        time_axis = np.arange(len(prediction_data)) * 30  # Time in seconds
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+                        # Plot the prediction data using Plotly
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(x=time_axis, y=prediction_data, mode='lines', name='Prediction'))
 
-# Add some spacing
-''
-''
+                        fig.update_layout(
+                            title='Prediction Output Over Time',
+                            xaxis_title='Time (seconds)',
+                            yaxis_title='Prediction Value'
+                        )
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+                        st.plotly_chart(fig)
+                    else:
+                        st.write("Error: Prediction .npy file not found.")
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
+                else:
+                    st.write("Error: Preprocessed file (.h5) not found.")
+                
+            except subprocess.CalledProcessError as e:
+                st.write(f"Error running command: {e}")
 
-countries = gdp_df['Country Code'].unique()
+    except Exception as e:
+        st.write(f"Error reading {uploaded_file.name}: {e}")
 
-if not len(countries):
-    st.warning("Select at least one country")
+# Upload a single EDF file
+uploaded_file = st.file_uploader("Choose an EDF file", type=["edf"])
 
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# Process the uploaded file if one is selected
+if uploaded_file is not None:
+    process_edf_file(uploaded_file)
