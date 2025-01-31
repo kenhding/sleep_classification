@@ -1,5 +1,6 @@
 streamlit
 pandas
 tensorflow==2.12
+git+https://github.com/tensorflow/addons.git@r0.23#egg=tensorflow-addons
 git+https://github.com/kenhding/sleepUT.git
 plotly
